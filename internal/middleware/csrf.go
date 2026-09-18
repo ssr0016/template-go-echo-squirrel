@@ -29,15 +29,8 @@ func CSRFProtection() echo.MiddlewareFunc {
 
 			if token == "" {
 				token = generateCSRFToken()
-				c.SetCookie(&http.Cookie{
-					Name:     csrfCookieName,
-					Value:    token,
-					Path:     "/",
-					HttpOnly: true,                              // #nosec G124 - not sensitive, readable by JS needed for header
-					SameSite: http.SameSiteStrictMode,           // #nosec G124 - CSRF protection
-					Secure:   isSecure(c),                       // #nosec G124 - set based on environment
-					MaxAge:   86400,
-				})
+				secure := c.Scheme() == "https"
+				c.SetCookie(newCSRFCookie(token, secure))
 			}
 
 			c.Set(csrfTokenKey, token)
@@ -56,9 +49,17 @@ func CSRFProtection() echo.MiddlewareFunc {
 	}
 }
 
-// isSecure returns true if the request is over HTTPS.
-func isSecure(c echo.Context) bool {
-	return c.Scheme() == "https"
+// newCSRFCookie creates a CSRF cookie with secure attributes.
+func newCSRFCookie(token string, secure bool) *http.Cookie {
+	return &http.Cookie{ //nolint:gosec // G124: HttpOnly and SameSite set; Secure based on env
+		Name:     csrfCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Secure:   secure,
+		MaxAge:   86400,
+	}
 }
 
 // GetCSRFToken returns the current CSRF token.

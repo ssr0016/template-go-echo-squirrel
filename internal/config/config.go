@@ -135,7 +135,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-
 func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	if v := os.Getenv(key); v != "" {
 		// Try as seconds (int)
