@@ -1,12 +1,13 @@
 package middleware
 
 import (
-	"net/http"
 	"sync"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"golang.org/x/time/rate"
+
+	"github.com/ssr0016/template/internal/apperror"
 )
 
 type visitor struct {
@@ -63,7 +64,7 @@ func RateLimit(r rate.Limit, burst int) echo.MiddlewareFunc {
 			ip := c.RealIP()
 			limiter := store.getLimiter(ip)
 			if !limiter.Allow() {
-				return echo.NewHTTPError(http.StatusTooManyRequests, "rate limit exceeded, try again later")
+				return apperror.RateLimit("rate limit exceeded, try again later")
 			}
 			return next(c)
 		}

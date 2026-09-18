@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/ssr0016/template/internal/apperror"
 )
 
 const (
@@ -33,7 +34,7 @@ func CSRFProtection() echo.MiddlewareFunc {
 					Value:    token,
 					Path:     "/",
 					HttpOnly: false,
-					SameSite: http.SameSiteStrictMode,
+					SameSite: http.SameSiteLaxMode,
 					Secure:   false,
 					MaxAge:   86400,
 				})
@@ -47,7 +48,7 @@ func CSRFProtection() echo.MiddlewareFunc {
 
 			headerToken := c.Request().Header.Get(csrfHeaderName)
 			if headerToken == "" || headerToken != token {
-				return echo.NewHTTPError(http.StatusForbidden, "CSRF token invalid or missing")
+				return apperror.Forbidden("CSRF token invalid or missing")
 			}
 
 			return next(c)

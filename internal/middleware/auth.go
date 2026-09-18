@@ -1,10 +1,9 @@
 package middleware
 
 import (
-	"net/http"
-
 	"github.com/alexedwards/scs/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/ssr0016/template/internal/apperror"
 )
 
 const UserIDKey = "user_id"
@@ -14,13 +13,9 @@ func RequireAuth(sm *scs.SessionManager) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			userID := sm.GetInt64(c.Request().Context(), UserIDKey)
 			if userID == 0 {
-				return echo.NewHTTPError(http.StatusUnauthorized, "authentication required")
+				return apperror.Unauthorized("authentication required")
 			}
 			return next(c)
 		}
 	}
-}
-
-func GetUserID(c echo.Context, sm *scs.SessionManager) int64 {
-	return sm.GetInt64(c.Request().Context(), UserIDKey)
 }

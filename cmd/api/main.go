@@ -33,6 +33,7 @@ import (
 	echoSwagger "github.com/swaggo/echo-swagger"
 
 	_ "github.com/ssr0016/template/docs"
+	"github.com/ssr0016/template/internal/apperror"
 	"github.com/ssr0016/template/internal/database"
 	"github.com/ssr0016/template/internal/handler"
 	"github.com/ssr0016/template/internal/logger"
@@ -84,12 +85,14 @@ func main() {
 
 	e := echo.New()
 	e.Validator = validator.New()
+	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.HideBanner = true
 	e.HidePort = true
 
 	// Middleware
 	e.Use(middleware.RequestID())
 	e.Use(ourmiddleware.SlogLogger(log))
+	e.Use(ourmiddleware.CSRFProtection())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{os.Getenv("CORS_ALLOWED_ORIGINS")},
