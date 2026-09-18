@@ -285,9 +285,7 @@ const docTemplate = `{
                     "minLength": 2
                 },
                 "password": {
-                    "type": "string",
-                    "maxLength": 72,
-                    "minLength": 8
+                    "type": "string"
                 }
             }
         },

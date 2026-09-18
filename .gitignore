@@ -10,3 +10,8 @@ coverage.html
 .vscode/
 *.swp
 tmp/
+cookies.txt
+*.log
+.DS_Store
+*.bak
+*.bak[0-9]*
