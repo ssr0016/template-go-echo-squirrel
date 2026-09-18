@@ -4,6 +4,12 @@
 
 Production-ready Go backend starter kit with **Echo**, **Squirrel**, **pgx**, and **Postgres**.
 
+## 🌐 Live Demo
+
+- **API:** https://template-go-echo-squirrel-production.up.railway.app
+- **Swagger:** https://template-go-echo-squirrel-production.up.railway.app/swagger/index.html
+- **Health:** https://template-go-echo-squirrel-production.up.railway.app/health
+
 ## Features
 
 - Echo v4 - Fast web framework
@@ -46,19 +52,15 @@ make dev
 ## API Endpoints
 
 ### Public
-| Method | Path | Description |
-|---|---|---|
-| GET | /health | Health check |
-| POST | /api/v1/auth/register | Register |
-| POST | /api/v1/auth/login | Login |
+- GET /health
+- POST /api/v1/auth/register
+- POST /api/v1/auth/login
 
 ### Protected
-| Method | Path | Description |
-|---|---|---|
-| POST | /api/v1/auth/logout | Logout |
-| GET | /api/v1/auth/me | Current user |
-| GET | /api/v1/users | List users |
-| GET | /api/v1/users/:id | Get user |
+- POST /api/v1/auth/logout
+- GET /api/v1/auth/me
+- GET /api/v1/users
+- GET /api/v1/users/:id
 
 ## Makefile Commands
 
@@ -96,11 +98,13 @@ template-go-echo-squirrel/
 - docs/             # Swagger
 - Dockerfile
 - docker-compose.yaml
+- docker-compose.prod.yaml
 - Makefile
 - .env.example
 - README.md
 - SETUP.md
 - ROADMAP.md
+- CUSTOMIZATION.md
 
 ## Security
 
@@ -121,13 +125,19 @@ template-go-echo-squirrel/
 | test-pg | 5436 | Postgres (test) |
 | pg-admin | 5051 | PgAdmin UI |
 
-PgAdmin: http://localhost:5051 (admin@example.com / admin)
+## Deployment
+
+Deployed on [Railway](https://railway.app) with:
+- Auto-deploy from GitHub
+- Postgres database
+- SSL/TLS
+- Custom domain ready
 
 ## Documentation
 
 - [SETUP.md](SETUP.md) - Setup guide
 - [ROADMAP.md](ROADMAP.md) - Project roadmap
-- Swagger UI: http://localhost:8080/swagger/index.html
+- [CUSTOMIZATION.md](CUSTOMIZATION.md) - Customization guide
 
 ## License
 
