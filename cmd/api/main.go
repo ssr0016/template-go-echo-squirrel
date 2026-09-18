@@ -20,7 +20,7 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,6 +35,8 @@ import (
 	_ "github.com/ssr0016/template/docs"
 	"github.com/ssr0016/template/internal/database"
 	"github.com/ssr0016/template/internal/handler"
+	"github.com/ssr0016/template/internal/logger"
+	ourmiddleware "github.com/ssr0016/template/internal/middleware"
 	"github.com/ssr0016/template/internal/repository"
 	"github.com/ssr0016/template/internal/service"
 	"github.com/ssr0016/template/internal/session"
@@ -44,16 +46,33 @@ import (
 func main() {
 	_ = godotenv.Load()
 
+	// Initialize logger
+	logLevel := getEnv("LOG_LEVEL", "info")
+	logFormat := getEnv("LOG_FORMAT", "text")
+	log := logger.New(logger.Config{
+		Level:  logLevel,
+		Format: logFormat,
+	})
+	slog.SetDefault(log)
+
+	log.Info("starting server",
+		"env", getEnv("APP_ENV", "local"),
+		"log_level", logLevel,
+		"log_format", logFormat,
+	)
+
 	ctx := context.Background()
 	db, err := database.New(ctx)
 	if err != nil {
-		log.Fatalf("db init: %v", err)
+		log.Error("db init failed", "error", err)
+		os.Exit(1)
 	}
 	defer db.Pool.Close()
 
 	if os.Getenv("APP_ENV") != "production" {
 		if err := database.RunMigrations(db.Pool); err != nil {
-			log.Fatalf("migrations: %v", err)
+			log.Error("migrations failed", "error", err)
+			os.Exit(1)
 		}
 	}
 
@@ -65,10 +84,12 @@ func main() {
 
 	e := echo.New()
 	e.Validator = validator.New()
-	e.HideBanner = false
+	e.HideBanner = true
+	e.HidePort = true
 
+	// Middleware
 	e.Use(middleware.RequestID())
-	e.Use(middleware.Logger())
+	e.Use(ourmiddleware.SlogLogger(log))
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     []string{os.Getenv("CORS_ALLOWED_ORIGINS")},
@@ -77,15 +98,12 @@ func main() {
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	// Swagger UI
+	// Routes
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
-
-	// Health check
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// API routes
 	api := e.Group("/api/v1")
 
 	auth := api.Group("/auth")
@@ -94,7 +112,7 @@ func main() {
 	auth.POST("/logout", authHandler.Logout)
 	auth.GET("/me", authHandler.Me)
 
-	users := api.Group("/users")
+	users := api.Group("/users", ourmiddleware.RequireAuth(sm))
 	users.GET("", userHandler.ListUsers)
 	users.GET("/:id", userHandler.GetUser)
 
@@ -102,19 +120,23 @@ func main() {
 	scsHandler := sm.LoadAndSave(e)
 
 	go func() {
-		port := os.Getenv("APP_PORT")
-		if port == "" {
-			port = "8080"
-		}
+		port := getEnv("APP_PORT", "8080")
 		server := &http.Server{
-			Addr:    ":" + port,
-			Handler: scsHandler,
+			Addr:         ":" + port,
+			Handler:      scsHandler,
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+			IdleTimeout:  60 * time.Second,
 		}
-		log.Printf("🚀 API Server:  http://localhost:%s", port)
-		log.Printf("📖 Swagger UI:  http://localhost:%s/swagger/index.html", port)
-		log.Printf("❤️  Health:      http://localhost:%s/health", port)
+		log.Info("server starting",
+			"port", port,
+			"api_url", "http://localhost:"+port,
+			"swagger_url", "http://localhost:"+port+"/swagger/index.html",
+			"health_url", "http://localhost:"+port+"/health",
+		)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server: %v", err)
+			log.Error("server error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -122,7 +144,20 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
+	log.Info("shutting down server...")
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = e.Shutdown(shutdownCtx)
+	if err := e.Shutdown(shutdownCtx); err != nil {
+		log.Error("shutdown error", "error", err)
+	}
+
+	log.Info("server stopped")
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
