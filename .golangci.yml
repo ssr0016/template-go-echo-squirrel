@@ -29,28 +29,26 @@ linters:
     - wrapcheck
     - depguard
 
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  revive:
-    rules:
-      - name: exported
-        disabled: true
+  settings:
+    gocyclo:
+      min-complexity: 15
+    dupl:
+      threshold: 100
+    revive:
+      rules:
+        - name: exported
+          disabled: true
 
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - dupl
-        - gosec
-        - gocyclo
-    - path: docs/
-      linters:
-        - all
-  max-issues-per-linter: 0
-  max-same-issues: 0
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - dupl
+          - gosec
+          - gocyclo
+      - path: docs/
+        linters:
+          - "*"
 
 formatters:
   enable:
