@@ -8,15 +8,15 @@ import (
 
 func TestLoad_WithAllEnvVars(t *testing.T) {
 	// Set env vars
-	os.Setenv("APP_ENV", "production")
-	os.Setenv("APP_PORT", "9090")
-	os.Setenv("APP_URL", "https://api.example.com")
-	os.Setenv("DATABASE_URL", "postgres://user:pass@host:5432/db")
-	os.Setenv("SESSION_COOKIE_NAME", "my_session")
-	os.Setenv("SESSION_LIFETIME", "3600")
-	os.Setenv("LOG_LEVEL", "warn")
-	os.Setenv("LOG_FORMAT", "json")
-	os.Setenv("CORS_ALLOWED_ORIGINS", "https://app.example.com,https://admin.example.com")
+	_ = os.Setenv("APP_ENV", "production")
+	_ = os.Setenv("APP_PORT", "9090")
+	_ = os.Setenv("APP_URL", "https://api.example.com")
+	_ = os.Setenv("DATABASE_URL", "postgres://user:pass@host:5432/db")
+	_ = os.Setenv("SESSION_COOKIE_NAME", "my_session")
+	_ = os.Setenv("SESSION_LIFETIME", "3600")
+	_ = os.Setenv("LOG_LEVEL", "warn")
+	_ = os.Setenv("LOG_FORMAT", "json")
+	_ = os.Setenv("CORS_ALLOWED_ORIGINS", "https://app.example.com,https://admin.example.com")
 	defer cleanupEnv()
 
 	cfg, err := Load()
@@ -72,7 +72,7 @@ func TestLoad_WithAllEnvVars(t *testing.T) {
 
 func TestLoad_WithDefaults(t *testing.T) {
 	cleanupEnv()
-	os.Setenv("DATABASE_URL", "postgres://localhost/test")
+	_ = os.Setenv("DATABASE_URL", "postgres://localhost/test")
 
 	cfg, err := Load()
 	if err != nil {
@@ -131,10 +131,10 @@ func TestStage_FromEnv(t *testing.T) {
 
 func TestConfig_IsMethods(t *testing.T) {
 	tests := []struct {
-		stage          Stage
-		wantProd       bool
-		wantDev        bool
-		wantDebug      bool
+		stage     Stage
+		wantProd  bool
+		wantDev   bool
+		wantDebug bool
 	}{
 		{StageLocal, false, true, true},
 		{StageDev, false, true, true},
@@ -166,6 +166,6 @@ func cleanupEnv() {
 		"LOG_LEVEL", "LOG_FORMAT",
 		"CORS_ALLOWED_ORIGINS",
 	} {
-		os.Unsetenv(key)
+		_ = os.Unsetenv(key)
 	}
 }

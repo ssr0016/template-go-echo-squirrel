@@ -47,13 +47,19 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("fatal error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	_ = godotenv.Load()
 
 	// Load config
 	cfg, err := config.Load()
 	if err != nil {
-		slog.Error("config load failed", "error", err)
-		os.Exit(1)
+		return err
 	}
 
 	// Initialize logger
@@ -74,15 +80,13 @@ func main() {
 	ctx := context.Background()
 	db, err := database.NewWithURL(ctx, cfg.Database.URL)
 	if err != nil {
-		log.Error("db init failed", "error", err)
-		os.Exit(1)
+		return err
 	}
 	defer db.Pool.Close()
 
 	if !cfg.IsProduction() {
 		if err := database.RunMigrations(db.Pool); err != nil {
-			log.Error("migrations failed", "error", err)
-			os.Exit(1)
+			return err
 		}
 	}
 
@@ -124,20 +128,25 @@ func main() {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// API routes (with rate limit, auth, etc.)
+	// API routes
 	router.Setup(e, sm, authHandler, userHandler)
 
-	// Wrap whole app with scs.LoadAndSave for session handling
+	// Wrap whole app with scs.LoadAndSave
 	scsHandler := sm.LoadAndSave(e)
 
+	server := &http.Server{
+		Addr:         ":" + cfg.App.Port,
+		Handler:      scsHandler,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
 	go func() {
-		server := &http.Server{
-			Addr:         ":" + cfg.App.Port,
-			Handler:      scsHandler,
-			ReadTimeout:  15 * time.Second,
-			WriteTimeout: 15 * time.Second,
-			IdleTimeout:  60 * time.Second,
-		}
 		log.Info("server starting",
 			"port", cfg.App.Port,
 			"api_url", cfg.App.URL,
@@ -146,21 +155,21 @@ func main() {
 		)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("server error", "error", err)
-			os.Exit(1)
+			quit <- syscall.SIGTERM
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	log.Info("shutting down server...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := e.Shutdown(shutdownCtx); err != nil {
+	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error("shutdown error", "error", err)
+		return err
 	}
 
 	log.Info("server stopped")
+	return nil
 }

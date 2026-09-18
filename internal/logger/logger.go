@@ -13,6 +13,9 @@ type ContextKey string
 const (
 	// RequestIDKey is the context key for the request ID.
 	RequestIDKey ContextKey = "request_id"
+
+	// LoggerKey is the context key for the logger.
+	LoggerKey ContextKey = "logger"
 )
 
 // Config holds the logger configuration.
@@ -66,7 +69,7 @@ func FromContext(ctx context.Context) *slog.Logger {
 	if ctx == nil {
 		return slog.Default()
 	}
-	if log, ok := ctx.Value("logger").(*slog.Logger); ok {
+	if log, ok := ctx.Value(LoggerKey).(*slog.Logger); ok {
 		return log
 	}
 	return slog.Default()
@@ -74,7 +77,7 @@ func FromContext(ctx context.Context) *slog.Logger {
 
 // WithContext returns a new context with the logger attached.
 func WithContext(ctx context.Context, log *slog.Logger) context.Context {
-	return context.WithValue(ctx, "logger", log)
+	return context.WithValue(ctx, LoggerKey, log)
 }
 
 // WithRequestIDContext returns a new context with the request ID attached.

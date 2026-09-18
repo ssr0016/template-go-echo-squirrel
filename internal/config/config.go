@@ -37,8 +37,8 @@ type DatabaseConfig struct {
 
 // SessionConfig holds session settings.
 type SessionConfig struct {
-	CookieName string
-	Lifetime   time.Duration
+	CookieName  string
+	Lifetime    time.Duration
 	IdleTimeout time.Duration
 }
 
@@ -135,14 +135,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func getEnvInt(key string, fallback int) int {
-	if v := os.Getenv(key); v != "" {
-		if i, err := strconv.Atoi(v); err == nil {
-			return i
-		}
-	}
-	return fallback
-}
 
 func getEnvDuration(key string, fallback time.Duration) time.Duration {
 	if v := os.Getenv(key); v != "" {

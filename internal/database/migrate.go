@@ -14,7 +14,9 @@ var migrationsFS embed.FS
 
 func RunMigrations(pool *pgxpool.Pool) error {
 	db := stdlib.OpenDBFromPool(pool)
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	goose.SetBaseFS(migrationsFS)
 	if err := goose.SetDialect("postgres"); err != nil {
