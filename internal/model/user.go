@@ -7,19 +7,30 @@ type User struct {
 	Email        string    `json:"email" db:"email"`
 	Name         string    `json:"name" db:"name"`
 	PasswordHash string    `json:"-" db:"password_hash"`
+	RoleID       int64     `json:"role_id" db:"role_id"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+
+	// Role is populated on demand (not always loaded)
+	Role *Role `json:"role,omitempty"`
 }
 
 type UserResponse struct {
 	ID        int64     `json:"id"`
 	Email     string    `json:"email"`
 	Name      string    `json:"name"`
+	RoleID    int64     `json:"role_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 func (u *User) ToResponse() UserResponse {
-	return UserResponse{ID: u.ID, Email: u.Email, Name: u.Name, CreatedAt: u.CreatedAt}
+	return UserResponse{
+		ID:        u.ID,
+		Email:     u.Email,
+		Name:      u.Name,
+		RoleID:    u.RoleID,
+		CreatedAt: u.CreatedAt,
+	}
 }
 
 type RegisterRequest struct {
