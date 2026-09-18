@@ -34,6 +34,7 @@ import (
 
 	_ "github.com/ssr0016/template/docs"
 	"github.com/ssr0016/template/internal/apperror"
+	"github.com/ssr0016/template/internal/config"
 	"github.com/ssr0016/template/internal/database"
 	"github.com/ssr0016/template/internal/handler"
 	"github.com/ssr0016/template/internal/logger"
@@ -47,42 +48,57 @@ import (
 func main() {
 	_ = godotenv.Load()
 
+	// Load config
+	cfg, err := config.Load()
+	if err != nil {
+		slog.Error("config load failed", "error", err)
+		os.Exit(1)
+	}
+
 	// Initialize logger
-	logLevel := getEnv("LOG_LEVEL", "info")
-	logFormat := getEnv("LOG_FORMAT", "text")
 	log := logger.New(logger.Config{
-		Level:  logLevel,
-		Format: logFormat,
+		Level:  cfg.Logging.Level,
+		Format: cfg.Logging.Format,
 	})
 	slog.SetDefault(log)
 
 	log.Info("starting server",
-		"env", getEnv("APP_ENV", "local"),
-		"log_level", logLevel,
-		"log_format", logFormat,
+		"env", cfg.App.Env,
+		"stage", cfg.Stage.String(),
+		"log_level", cfg.Logging.Level,
+		"log_format", cfg.Logging.Format,
 	)
 
+	// Database
 	ctx := context.Background()
-	db, err := database.New(ctx)
+	db, err := database.NewWithURL(ctx, cfg.Database.URL)
 	if err != nil {
 		log.Error("db init failed", "error", err)
 		os.Exit(1)
 	}
 	defer db.Pool.Close()
 
-	if os.Getenv("APP_ENV") != "production" {
+	if !cfg.IsProduction() {
 		if err := database.RunMigrations(db.Pool); err != nil {
 			log.Error("migrations failed", "error", err)
 			os.Exit(1)
 		}
 	}
 
+	// Session
 	sm := session.New(db.Pool)
+
+	// Repos
 	userRepo := repository.NewUserRepo(db)
+
+	// Services
 	authService := service.NewAuthService(userRepo)
+
+	// Handlers
 	authHandler := handler.NewAuthHandler(authService, sm)
 	userHandler := handler.NewUserHandler(userRepo)
 
+	// Echo
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
@@ -95,7 +111,7 @@ func main() {
 	e.Use(ourmiddleware.CSRFProtection())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{os.Getenv("CORS_ALLOWED_ORIGINS")},
+		AllowOrigins:     cfg.CORS.AllowedOrigins,
 		AllowCredentials: true,
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
@@ -123,19 +139,18 @@ func main() {
 	scsHandler := sm.LoadAndSave(e)
 
 	go func() {
-		port := getEnv("APP_PORT", "8080")
 		server := &http.Server{
-			Addr:         ":" + port,
+			Addr:         ":" + cfg.App.Port,
 			Handler:      scsHandler,
 			ReadTimeout:  15 * time.Second,
 			WriteTimeout: 15 * time.Second,
 			IdleTimeout:  60 * time.Second,
 		}
 		log.Info("server starting",
-			"port", port,
-			"api_url", "http://localhost:"+port,
-			"swagger_url", "http://localhost:"+port+"/swagger/index.html",
-			"health_url", "http://localhost:"+port+"/health",
+			"port", cfg.App.Port,
+			"api_url", cfg.App.URL,
+			"swagger_url", cfg.App.URL+"/swagger/index.html",
+			"health_url", cfg.App.URL+"/health",
 		)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("server error", "error", err)
@@ -156,11 +171,4 @@ func main() {
 	}
 
 	log.Info("server stopped")
-}
-
-func getEnv(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

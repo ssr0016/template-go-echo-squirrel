@@ -14,10 +14,15 @@ type DB struct {
 	Builder sq.StatementBuilderType
 }
 
+// New creates a DB using DATABASE_URL from environment (backward compatible).
 func New(ctx context.Context) (*DB, error) {
-	dsn := os.Getenv("DATABASE_URL")
+	return NewWithURL(ctx, os.Getenv("DATABASE_URL"))
+}
+
+// NewWithURL creates a DB using the provided URL.
+func NewWithURL(ctx context.Context, dsn string) (*DB, error) {
 	if dsn == "" {
-		return nil, fmt.Errorf("DATABASE_URL not set")
+		return nil, fmt.Errorf("database URL is required")
 	}
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
