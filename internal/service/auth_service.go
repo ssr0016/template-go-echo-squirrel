@@ -5,9 +5,10 @@ import (
 	"errors"
 	"fmt"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/ssr0016/template/internal/model"
 	"github.com/ssr0016/template/internal/repository"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -16,9 +17,11 @@ var (
 	ErrUnauthorized       = errors.New("unauthorized")
 )
 
-type AuthService struct{ userRepo *repository.UserRepo }
+type AuthService struct {
+	userRepo repository.UserRepository
+}
 
-func NewAuthService(userRepo *repository.UserRepo) *AuthService {
+func NewAuthService(userRepo repository.UserRepository) *AuthService {
 	return &AuthService{userRepo: userRepo}
 }
 
@@ -30,10 +33,12 @@ func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (
 	if existing != nil {
 		return nil, ErrEmailTaken
 	}
+
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
+
 	return s.userRepo.CreateWithPassword(ctx, req.Email, req.Name, string(hash))
 }
 
@@ -45,8 +50,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 	if user == nil {
 		return nil, ErrInvalidCredentials
 	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, ErrInvalidCredentials
 	}
+
 	return user, nil
 }

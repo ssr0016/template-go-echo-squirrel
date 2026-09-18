@@ -5,13 +5,16 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+
 	"github.com/ssr0016/template/internal/apperror"
 	"github.com/ssr0016/template/internal/repository"
 )
 
-type UserHandler struct{ repo *repository.UserRepo }
+type UserHandler struct {
+	repo repository.UserRepository
+}
 
-func NewUserHandler(repo *repository.UserRepo) *UserHandler {
+func NewUserHandler(repo repository.UserRepository) *UserHandler {
 	return &UserHandler{repo: repo}
 }
 
