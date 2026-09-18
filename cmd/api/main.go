@@ -40,6 +40,7 @@ import (
 	"github.com/ssr0016/template/internal/logger"
 	ourmiddleware "github.com/ssr0016/template/internal/middleware"
 	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/template/internal/router"
 	"github.com/ssr0016/template/internal/service"
 	"github.com/ssr0016/template/internal/session"
 	"github.com/ssr0016/template/internal/validator"
@@ -105,7 +106,7 @@ func main() {
 	e.HideBanner = true
 	e.HidePort = true
 
-	// Middleware
+	// Global middleware
 	e.Use(middleware.RequestID())
 	e.Use(ourmiddleware.SlogLogger(log))
 	e.Use(ourmiddleware.CSRFProtection())
@@ -117,23 +118,14 @@ func main() {
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	// Routes
+	// Public routes
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	api := e.Group("/api/v1")
-
-	auth := api.Group("/auth")
-	auth.POST("/register", authHandler.Register)
-	auth.POST("/login", authHandler.Login)
-	auth.POST("/logout", authHandler.Logout)
-	auth.GET("/me", authHandler.Me)
-
-	users := api.Group("/users", ourmiddleware.RequireAuth(sm))
-	users.GET("", userHandler.ListUsers)
-	users.GET("/:id", userHandler.GetUser)
+	// API routes (with rate limit, auth, etc.)
+	router.Setup(e, sm, authHandler, userHandler)
 
 	// Wrap whole app with scs.LoadAndSave for session handling
 	scsHandler := sm.LoadAndSave(e)
