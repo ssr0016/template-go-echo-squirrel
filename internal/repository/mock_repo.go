@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"context"
 	"sync"
 
@@ -18,6 +19,8 @@ type MockUserRepo struct {
 	GetByEmailFunc         func(ctx context.Context, email string) (*model.User, error)
 	CreateWithPasswordFunc func(ctx context.Context, email, name, hash string) (*model.User, error)
 	ListFunc               func(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
+	UpdateRoleFunc         func(ctx context.Context, userID, roleID int64) error
+	GetWithRoleFunc        func(ctx context.Context, id int64) (*model.User, error)
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -87,4 +90,35 @@ func (m *MockUserRepo) List(ctx context.Context, emailFilter string, limit int) 
 		result = append(result, *u)
 	}
 	return result, nil
+}
+
+// UpdateRole changes a user's role (mock).
+func (m *MockUserRepo) UpdateRole(ctx context.Context, userID, roleID int64) error {
+	if m.UpdateRoleFunc != nil {
+		return m.UpdateRoleFunc(ctx, userID, roleID)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[userID]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+	user.RoleID = roleID
+	return nil
+}
+
+// GetWithRole returns a user with role (mock).
+func (m *MockUserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, error) {
+	if m.GetWithRoleFunc != nil {
+		return m.GetWithRoleFunc(ctx, id)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[id]
+	if !ok {
+		return nil, nil
+	}
+	return user, nil
 }

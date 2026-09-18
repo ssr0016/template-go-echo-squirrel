@@ -12,7 +12,36 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error)
 	List(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
+	UpdateRole(ctx context.Context, userID, roleID int64) error
+	GetWithRole(ctx context.Context, id int64) (*model.User, error)
 }
 
-// Compile-time check: UserRepo implements UserRepository.
-var _ UserRepository = (*UserRepo)(nil)
+// RoleRepository defines the interface for role data access.
+type RoleRepository interface {
+	Create(ctx context.Context, req model.CreateRoleRequest) (*model.Role, error)
+	GetByID(ctx context.Context, id int64) (*model.Role, error)
+	GetByName(ctx context.Context, name string) (*model.Role, error)
+	List(ctx context.Context) ([]model.Role, error)
+	Update(ctx context.Context, id int64, req model.UpdateRoleRequest) (*model.Role, error)
+	Delete(ctx context.Context, id int64) error
+	GetPermissions(ctx context.Context, roleID int64) ([]model.Permission, error)
+	AssignPermission(ctx context.Context, roleID, permissionID int64) error
+	RevokePermission(ctx context.Context, roleID, permissionID int64) error
+}
+
+// PermissionRepository defines the interface for permission data access.
+type PermissionRepository interface {
+	Create(ctx context.Context, name, resource, action string) (*model.Permission, error)
+	GetByID(ctx context.Context, id int64) (*model.Permission, error)
+	GetByName(ctx context.Context, name string) (*model.Permission, error)
+	List(ctx context.Context) ([]model.Permission, error)
+	ListByResource(ctx context.Context, resource string) ([]model.Permission, error)
+	Delete(ctx context.Context, id int64) error
+}
+
+// Compile-time checks: implementations must satisfy interfaces.
+var (
+	_ UserRepository       = (*UserRepo)(nil)
+	_ RoleRepository       = (*RoleRepo)(nil)
+	_ PermissionRepository = (*PermissionRepo)(nil)
+)

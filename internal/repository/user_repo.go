@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5"
@@ -113,4 +114,73 @@ func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]m
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 	return users, nil
+}
+
+// UpdateRole changes a user's role.
+func (r *UserRepo) UpdateRole(ctx context.Context, userID, roleID int64) error {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("role_id", roleID).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": userID}).
+		ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	result, err := r.db.Pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("update role: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
+}
+
+// GetWithRole returns a user with their role loaded.
+func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, error) {
+	query, args, err := r.db.Builder.
+		Select(
+			"u.id", "u.email", "u.name", "u.password_hash", "u.role_id",
+			"u.created_at", "u.updated_at",
+			"r.id", "r.name", "r.description", "r.created_at", "r.updated_at",
+		).
+		From("users u").
+		LeftJoin("roles r ON r.id = u.role_id").
+		Where(sq.Eq{"u.id": id}).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+
+	var u model.User
+	var rID *int64
+	var rName, rDesc *string
+	var rCreatedAt, rUpdatedAt *time.Time
+
+	err = r.db.Pool.QueryRow(ctx, query, args...).Scan(
+		&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID,
+		&u.CreatedAt, &u.UpdatedAt,
+		&rID, &rName, &rDesc, &rCreatedAt, &rUpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query user: %w", err)
+	}
+
+	// Attach role if loaded
+	if rID != nil {
+		u.Role = &model.Role{
+			ID:          *rID,
+			Name:        *rName,
+			Description: *rDesc,
+			CreatedAt:   *rCreatedAt,
+			UpdatedAt:   *rUpdatedAt,
+		}
+	}
+
+	return &u, nil
 }

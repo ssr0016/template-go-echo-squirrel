@@ -56,13 +56,11 @@ func main() {
 func run() error {
 	_ = godotenv.Load()
 
-	// Load config
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	// Initialize logger
 	log := logger.New(logger.Config{
 		Level:  cfg.Logging.Level,
 		Format: cfg.Logging.Format,
@@ -76,7 +74,6 @@ func run() error {
 		"log_format", cfg.Logging.Format,
 	)
 
-	// Database
 	ctx := context.Background()
 	db, err := database.NewWithURL(ctx, cfg.Database.URL)
 	if err != nil {
@@ -90,27 +87,28 @@ func run() error {
 		}
 	}
 
-	// Session
+	// Seed database (idempotent)
+	if err := database.SeedData(ctx, db, log); err != nil {
+		return err
+	}
+
 	sm := session.New(db.Pool)
 
-	// Repos
 	userRepo := repository.NewUserRepo(db)
+	roleRepo := repository.NewRoleRepo(db)
+	permissionRepo := repository.NewPermissionRepo(db)
 
-	// Services
 	authService := service.NewAuthService(userRepo)
 
-	// Handlers
 	authHandler := handler.NewAuthHandler(authService, sm)
 	userHandler := handler.NewUserHandler(userRepo)
 
-	// Echo
 	e := echo.New()
 	e.Validator = validator.New()
 	e.HTTPErrorHandler = apperror.ErrorHandler
 	e.HideBanner = true
 	e.HidePort = true
 
-	// Global middleware
 	e.Use(middleware.RequestID())
 	e.Use(ourmiddleware.SlogLogger(log))
 	e.Use(ourmiddleware.CSRFProtection())
@@ -122,16 +120,13 @@ func run() error {
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
-	// Public routes
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// API routes
 	router.Setup(e, sm, authHandler, userHandler)
 
-	// Wrap whole app with scs.LoadAndSave
 	scsHandler := sm.LoadAndSave(e)
 
 	server := &http.Server{
@@ -142,7 +137,6 @@ func run() error {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
@@ -171,5 +165,9 @@ func run() error {
 	}
 
 	log.Info("server stopped")
+
+	_ = roleRepo
+	_ = permissionRepo
+
 	return nil
 }
