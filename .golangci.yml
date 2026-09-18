@@ -1,7 +1,7 @@
 run:
   timeout: 5m
   tests: true
-  skip-dirs:
+  exclude-dirs:
     - volumes
     - bin
     - tmp
