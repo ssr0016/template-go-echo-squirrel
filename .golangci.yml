@@ -1,22 +1,16 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
-  exclude-dirs:
-    - volumes
-    - bin
-    - tmp
-    - docs
 
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
     - ineffassign
     - staticcheck
     - unused
-    - gofmt
-    - goimports
     - misspell
     - revive
     - bodyclose
@@ -40,11 +34,6 @@ linters-settings:
     min-complexity: 15
   dupl:
     threshold: 100
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - style
-      - performance
   revive:
     rules:
       - name: exported
@@ -63,8 +52,14 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
 
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
 output:
   formats:
-    - format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
