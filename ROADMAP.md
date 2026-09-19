@@ -1,97 +1,151 @@
-# ROADMAP: Template Go Echo Squirrel
+# ROADMAP
 
 **Production-ready Go backend starter kit** — reusable sa future projects.
 
-## ✅ STATUS: Done
+---
 
-| Phase | Features | Status |
+## STATUS: COMPLETE (100%)
+
+| Phase | Feature | Status |
 |---|---|---|
-| 1 | Setup + Security | ✅ |
-| 2 | Structured logging (slog) | ✅ |
-| 3 | Custom error handling (apperror) | ✅ |
-| 4 | Type-safe config (config loader) | ✅ |
-| 5 | Unit tests (20 tests, 3 packages) | ✅ |
-| 6 | CI/CD (4 jobs all green) | ✅ |
-| 7 | Zero lint issues | ✅ |
+| 1-7 | Foundation | DONE |
+| 8 | RBAC | DONE |
+| 9 | Pagination | DONE |
+| 10 | Observability | DONE |
+| 11 | Docs Polish | DONE |
+| 12.1 | Email Verification | DONE |
+| 12.2 | Password Reset | DONE |
+| 12.3 | Account Lockout | DONE |
+| 13 | Integration Tests | DONE |
+| 14 | Final Polish | DONE |
 
-**Latest commit:** `61f8bbe`
+**Total commits:** 40+
+**Live:** https://template-go-echo-squirrel-production.up.railway.app
 
-## ⏳ TODO
+---
 
-### Phase 7 — Reusable Foundation
-- `.env.example` complete with comments
-- `SETUP.md` — setup guide with troubleshooting
-- Multi-stage `Dockerfile`
-- `.dockerignore`
-- README with CI badge + features
+## Phase 1-7: Foundation
 
-### Phase 8 — Deploy-Ready
-- `docker-compose.prod.yaml`
-- `DEPLOYMENT.md` — Railway/Fly.io/VPS guide
+- Echo v4 + Squirrel + pgx + Postgres
+- Session-based auth (scs + pgxstore)
+- CSRF protection
+- Rate limiting
+- Password strength validation
+- Structured logging (slog)
+- Custom error handling (apperror)
+- Type-safe config
+- Unit tests (20 tests)
+- CI/CD (4 jobs)
+- Docker (multi-stage)
+- Documentation (README, SETUP, CUSTOMIZATION)
 
-### Phase 9 — Integration Tests
-- Testcontainers setup
-- Repository integration tests
-- Handler integration tests
+## Phase 8: RBAC
 
-## 📁 Project Structure
+- Roles table (admin, editor, user)
+- Permissions table (9 permissions)
+- Role-permissions junction
+- User role assignment
+- RequireRole middleware
+- RequirePermission middleware
+- Admin endpoints (12 routes)
+- Seed data (3 roles, 9 perms, 1 admin)
 
-template-go-echo-squirrel/
-├── cmd/api/main.go
-├── internal/
-│   ├── apperror/
-│   ├── config/
-│   ├── database/
-│   ├── handler/
-│   ├── logger/
-│   ├── middleware/
-│   ├── model/
-│   ├── repository/
-│   ├── router/
-│   ├── service/
-│   ├── session/
-│   └── validator/
-├── docs/
-├── Dockerfile
-├── docker-compose.yaml
-├── Makefile
-├── go.mod
-├── .env.example
-├── README.md
-└── ROADMAP.md
+## Phase 9: Pagination
 
-## 🚀 Commands
+- pkg/pagination (generic Response[T])
+- ListWithPagination on all repos
+- Standard format: data + meta
+- Query params: page, limit
+- Max limit: 100
 
-make db-start
-make migrate-up
-make swagger
-make dev
-make run
-make test
-make lint
-make db-reset
+## Phase 10: Observability
 
-## 🔗 URLs
+- Prometheus metrics
+- /metrics endpoint
+- /health, /ready, /live
+- HTTP middleware (auto-capture)
+- DB connection gauges
 
-- Repo: https://github.com/ssr0016/template-go-echo-squirrel
-- CI: https://github.com/ssr0016/template-go-echo-squirrel/actions
-- Local API: http://localhost:8080
-- Swagger: http://localhost:8080/swagger/index.html
-- PgAdmin: http://localhost:5051
+## Phase 11: Docs Polish
 
-## 🎯 PARA SA IBANG AI AGENT
+- README (286 lines)
+- docs/API.md (341 lines)
+- docs/ARCHITECTURE.md (208 lines)
+- CUSTOMIZATION.md
 
-Kung mag-switch sa Claude/Codex/Cursor, i-paste ito:
+## Phase 12: Complete Auth
 
-"I'm working on a Go backend starter kit (template-go-echo-squirrel).
+### 12.1 Email Verification
+- email_verified column
+- verification_tokens table
+- VerificationService
+- GET /auth/verify-email
 
-DONE: Security, structured logging (slog), error handling (apperror), type-safe config, 20 unit tests, CI/CD (4 jobs green), zero lint issues.
+### 12.2 Password Reset
+- password_resets table
+- PasswordResetService
+- POST /auth/forgot-password
+- POST /auth/reset-password
 
-TODO:
-- Phase 7: .env.example, SETUP.md, Dockerfile, .dockerignore, README update
-- Phase 8: docker-compose.prod.yaml, DEPLOYMENT.md
-- Phase 9: Testcontainers integration tests
+### 12.3 Account Lockout
+- failed_login_attempts column
+- locked_until column
+- 5 attempts → 15 min lock
+- Auto-reset on success
 
-Stack: Echo + Squirrel + pgx + Postgres + scs
+## Phase 13: Integration Tests
 
-Let's continue with Phase 7."
+- Testcontainers (real Postgres)
+- internal/testutil/db.go
+- user_repo_integration_test.go (10 tests)
+- Build tag: integration
+
+## Phase 14: Final Polish
+
+- Updated README with badges
+- Updated API.md with new endpoints
+- Added CONTRIBUTING.md
+- Updated ROADMAP.md
+
+---
+
+## Future Enhancements (Optional)
+
+These are NOT included in the starter kit:
+
+| Feature | Effort |
+|---|---|
+| OAuth2 (Google, GitHub) | 1-2 hrs |
+| 2FA (TOTP) | 1-2 hrs |
+| CLI scaffolding (make scaffold) | 1-2 hrs |
+| Frontend (HTML/JS) | 2-4 hrs |
+| WebSocket support | 2 hrs |
+| GraphQL endpoint | 2 hrs |
+| Email service (SMTP) | 30 min |
+| File uploads | 30 min |
+| Redis caching | 1 hr |
+| Background jobs (asynq) | 2 hrs |
+| Distributed tracing (OTel) | 1 hr |
+| Custom domain deployment | 30 min |
+
+---
+
+## Architecture
+
+See docs/ARCHITECTURE.md for:
+
+- Service layer rules (hybrid)
+- Testing strategy
+- Decision principles
+
+---
+
+## Contributing
+
+See CONTRIBUTING.md.
+
+---
+
+## License
+
+MIT
