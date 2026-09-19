@@ -114,6 +114,7 @@ func run() error {
 	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo)
 	verificationHandler := handler.NewVerificationHandler(verificationService)
 	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
+	healthHandler := handler.NewHealthHandler(db.Pool)
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -139,26 +140,9 @@ func run() error {
 
 	// Observability endpoints
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-	e.GET("/health", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
-	})
-	e.GET("/ready", func(c echo.Context) error {
-		pingCtx, cancel := context.WithTimeout(c.Request().Context(), 3*time.Second)
-		defer cancel()
-		if err := db.Pool.Ping(pingCtx); err != nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{
-				"status": "not ready",
-				"error":  err.Error(),
-			})
-		}
-		return c.JSON(http.StatusOK, map[string]string{
-			"status": "ready",
-			"db":     "connected",
-		})
-	})
-	e.GET("/live", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "alive"})
-	})
+	e.GET("/health", healthHandler.HealthCheck)
+	e.GET("/ready", healthHandler.Readiness)
+	e.GET("/live", healthHandler.Liveness)
 
 	// API routes
 	router.Setup(

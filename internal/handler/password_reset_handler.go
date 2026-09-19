@@ -26,6 +26,16 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password" validate:"required,min=8,max=72"`
 }
 
+// ForgotPassword godoc
+// @Summary      Request password reset
+// @Description  Sends a password reset token to the email if it exists
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body ForgotPasswordRequest true "Email payload"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Router       /auth/forgot-password [post]
 func (h *PasswordResetHandler) ForgotPassword(c echo.Context) error {
 	var req ForgotPasswordRequest
 	if err := c.Bind(&req); err != nil {
@@ -44,6 +54,16 @@ func (h *PasswordResetHandler) ForgotPassword(c echo.Context) error {
 	})
 }
 
+// ResetPassword godoc
+// @Summary      Reset password with token
+// @Description  Resets the user's password using a valid reset token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body body ResetPasswordRequest true "Reset payload"
+// @Success      200 {object} map[string]string
+// @Failure      400 {object} map[string]string
+// @Router       /auth/reset-password [post]
 func (h *PasswordResetHandler) ResetPassword(c echo.Context) error {
 	var req ResetPasswordRequest
 	if err := c.Bind(&req); err != nil {
