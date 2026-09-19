@@ -49,11 +49,9 @@ func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (
 	}
 
 	// Send verification email (log token in dev)
+	// Note: We don't fail registration if this fails
 	if s.verificationService != nil {
-		if _, err := s.verificationService.SendVerification(ctx, user.ID); err != nil {
-			// Log error but don't fail registration
-			// User can request new token later
-		}
+		_, _ = s.verificationService.SendVerification(ctx, user.ID)
 	}
 
 	return user, nil

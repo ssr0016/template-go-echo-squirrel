@@ -43,7 +43,6 @@ type PermissionRepository interface {
 	Delete(ctx context.Context, id int64) error
 }
 
-
 // VerificationRepository defines the interface for verification token access.
 type VerificationRepository interface {
 	Create(ctx context.Context, userID int64) (*model.VerificationToken, error)
@@ -54,8 +53,8 @@ type VerificationRepository interface {
 
 // Compile-time checks: implementations must satisfy interfaces.
 var (
-	_ UserRepository       = (*UserRepo)(nil)
-	_ RoleRepository       = (*RoleRepo)(nil)
-	_ PermissionRepository = (*PermissionRepo)(nil)
+	_ UserRepository         = (*UserRepo)(nil)
+	_ RoleRepository         = (*RoleRepo)(nil)
+	_ PermissionRepository   = (*PermissionRepo)(nil)
 	_ VerificationRepository = (*VerificationRepo)(nil)
 )
