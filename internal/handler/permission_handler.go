@@ -9,6 +9,7 @@ import (
 	"github.com/ssr0016/template/internal/apperror"
 	"github.com/ssr0016/template/internal/model"
 	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/template/pkg/pagination"
 )
 
 type PermissionHandler struct {
@@ -28,17 +29,15 @@ func NewPermissionHandler(permissionRepo repository.PermissionRepository) *Permi
 // @Success      200 {array} model.PermissionResponse
 // @Router       /admin/permissions [get]
 func (h *PermissionHandler) List(c echo.Context) error {
+	params := pagination.FromContext(c)
 	resource := c.QueryParam("resource")
 
-	var perms []model.Permission
-	var err error
-
-	if resource != "" {
-		perms, err = h.permissionRepo.ListByResource(c.Request().Context(), resource)
-	} else {
-		perms, err = h.permissionRepo.List(c.Request().Context())
-	}
-
+	perms, total, err := h.permissionRepo.ListWithPagination(
+		c.Request().Context(),
+		resource,
+		params.Page,
+		params.Limit,
+	)
 	if err != nil {
 		return apperror.Internal("failed to list permissions").WithError(err)
 	}
@@ -47,7 +46,8 @@ func (h *PermissionHandler) List(c echo.Context) error {
 	for i := range perms {
 		out = append(out, perms[i].ToResponse())
 	}
-	return c.JSON(http.StatusOK, out)
+
+	return c.JSON(http.StatusOK, pagination.NewResponse(out, params, total))
 }
 
 // Get godoc

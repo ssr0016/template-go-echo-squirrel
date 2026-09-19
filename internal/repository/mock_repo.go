@@ -21,6 +21,7 @@ type MockUserRepo struct {
 	ListFunc               func(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
 	UpdateRoleFunc         func(ctx context.Context, userID, roleID int64) error
 	GetWithRoleFunc        func(ctx context.Context, id int64) (*model.User, error)
+	ListWithPaginationFunc func(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -121,4 +122,19 @@ func (m *MockUserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, 
 		return nil, nil
 	}
 	return user, nil
+}
+
+// ListWithPagination returns users with pagination (mock).
+func (m *MockUserRepo) ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error) {
+	if m.ListWithPaginationFunc != nil {
+		return m.ListWithPaginationFunc(ctx, emailFilter, page, limit)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	result := make([]model.User, 0, len(m.users))
+	for _, u := range m.users {
+		result = append(result, *u)
+	}
+	return result, int64(len(result)), nil
 }

@@ -184,3 +184,66 @@ func (r *UserRepo) GetWithRole(ctx context.Context, id int64) (*model.User, erro
 
 	return &u, nil
 }
+
+// ListWithPagination returns users with pagination and total count.
+func (r *UserRepo) ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	base := r.db.Builder.
+		Select(userColumns).
+		From("users")
+
+	countQuery := r.db.Builder.
+		Select("COUNT(*)").
+		From("users")
+
+	if emailFilter != "" {
+		filter := sq.ILike{"email": "%" + emailFilter + "%"}
+		base = base.Where(filter)
+		countQuery = countQuery.Where(filter)
+	}
+
+	countSQL, countArgs, err := countQuery.ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build count query: %w", err)
+	}
+
+	var total int64
+	if err := r.db.Pool.QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count users: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	query, args, err := base.
+		OrderBy("id DESC").
+		Limit(uint64(limit)).   // #nosec G115 - limit validated
+		Offset(uint64(offset)). // #nosec G115 - offset validated
+		ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build query: %w", err)
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query: %w", err)
+	}
+	defer rows.Close()
+
+	var users []model.User
+	for rows.Next() {
+		var u model.User
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.CreatedAt, &u.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan user: %w", err)
+		}
+		users = append(users, u)
+	}
+	return users, total, rows.Err()
+}

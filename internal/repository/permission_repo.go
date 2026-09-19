@@ -111,3 +111,66 @@ func (r *PermissionRepo) scanPermissions(ctx context.Context, query string, args
 	}
 	return perms, rows.Err()
 }
+
+// ListWithPagination returns permissions with pagination and total count.
+func (r *PermissionRepo) ListWithPagination(ctx context.Context, resource string, page, limit int) ([]model.Permission, int64, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	base := r.db.Builder.
+		Select(permissionColumns).
+		From("permissions")
+
+	countQuery := r.db.Builder.
+		Select("COUNT(*)").
+		From("permissions")
+
+	if resource != "" {
+		filter := sq.Eq{"resource": resource}
+		base = base.Where(filter)
+		countQuery = countQuery.Where(filter)
+	}
+
+	countSQL, countArgs, err := countQuery.ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build count query: %w", err)
+	}
+
+	var total int64
+	if err := r.db.Pool.QueryRow(ctx, countSQL, countArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count permissions: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	query, args, err := base.
+		OrderBy("resource ASC, action ASC").
+		Limit(uint64(limit)).   // #nosec G115 - limit validated
+		Offset(uint64(offset)). // #nosec G115 - offset validated
+		ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build query: %w", err)
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query permissions: %w", err)
+	}
+	defer rows.Close()
+
+	var perms []model.Permission
+	for rows.Next() {
+		var p model.Permission
+		if err := rows.Scan(&p.ID, &p.Name, &p.Resource, &p.Action, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan permission: %w", err)
+		}
+		perms = append(perms, p)
+	}
+	return perms, total, rows.Err()
+}

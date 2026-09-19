@@ -174,3 +174,59 @@ func (r *RoleRepo) RevokePermission(ctx context.Context, roleID, permissionID in
 	}
 	return nil
 }
+
+// ListWithPagination returns roles with pagination and total count.
+func (r *RoleRepo) ListWithPagination(ctx context.Context, page, limit int) ([]model.Role, int64, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if page < 1 {
+		page = 1
+	}
+
+	// Get total count
+	countQuery, countArgs, err := r.db.Builder.
+		Select("COUNT(*)").
+		From("roles").
+		ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build count query: %w", err)
+	}
+
+	var total int64
+	if err := r.db.Pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count roles: %w", err)
+	}
+
+	// Get paginated data
+	offset := (page - 1) * limit
+	query, args, err := r.db.Builder.
+		Select(roleColumns).
+		From("roles").
+		OrderBy("id ASC").
+		Limit(uint64(limit)).   // #nosec G115 - limit validated
+		Offset(uint64(offset)). // #nosec G115 - offset validated
+		ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build query: %w", err)
+	}
+
+	rows, err := r.db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query roles: %w", err)
+	}
+	defer rows.Close()
+
+	var roles []model.Role
+	for rows.Next() {
+		var role model.Role
+		if err := rows.Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt); err != nil {
+			return nil, 0, fmt.Errorf("scan role: %w", err)
+		}
+		roles = append(roles, role)
+	}
+	return roles, total, rows.Err()
+}

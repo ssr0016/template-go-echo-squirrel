@@ -7,7 +7,9 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/ssr0016/template/internal/apperror"
+	"github.com/ssr0016/template/internal/model"
 	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/template/pkg/pagination"
 )
 
 type UserHandler struct {
@@ -19,27 +21,26 @@ func NewUserHandler(repo repository.UserRepository) *UserHandler {
 }
 
 func (h *UserHandler) ListUsers(c echo.Context) error {
+	params := pagination.FromContext(c)
 	emailFilter := c.QueryParam("email")
-	limit := 20
-	if l := c.QueryParam("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
-			limit = parsed
-		}
-	}
 
-	users, err := h.repo.List(c.Request().Context(), emailFilter, limit)
+	users, total, err := h.repo.ListWithPagination(
+		c.Request().Context(),
+		emailFilter,
+		params.Page,
+		params.Limit,
+	)
 	if err != nil {
 		return apperror.Internal("failed to list users").WithError(err)
 	}
 
-	out := make([]map[string]interface{}, 0, len(users))
+	// Convert to response DTOs
+	out := make([]model.UserResponse, 0, len(users))
 	for i := range users {
-		out = append(out, map[string]interface{}{
-			"id": users[i].ID, "email": users[i].Email,
-			"name": users[i].Name, "created_at": users[i].CreatedAt,
-		})
+		out = append(out, users[i].ToResponse())
 	}
-	return c.JSON(http.StatusOK, out)
+
+	return c.JSON(http.StatusOK, pagination.NewResponse(out, params, total))
 }
 
 func (h *UserHandler) GetUser(c echo.Context) error {

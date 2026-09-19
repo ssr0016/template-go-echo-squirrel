@@ -9,6 +9,7 @@ import (
 	"github.com/ssr0016/template/internal/apperror"
 	"github.com/ssr0016/template/internal/model"
 	"github.com/ssr0016/template/internal/repository"
+	"github.com/ssr0016/template/pkg/pagination"
 )
 
 type RoleHandler struct {
@@ -31,11 +32,18 @@ func NewRoleHandler(roleRepo repository.RoleRepository, permissionRepo repositor
 // @Success      200 {array} model.RoleResponse
 // @Router       /admin/roles [get]
 func (h *RoleHandler) List(c echo.Context) error {
-	roles, err := h.roleRepo.List(c.Request().Context())
+	params := pagination.FromContext(c)
+
+	roles, total, err := h.roleRepo.ListWithPagination(
+		c.Request().Context(),
+		params.Page,
+		params.Limit,
+	)
 	if err != nil {
 		return apperror.Internal("failed to list roles").WithError(err)
 	}
 
+	// Load permissions for each role
 	out := make([]model.RoleResponse, 0, len(roles))
 	for i := range roles {
 		perms, err := h.roleRepo.GetPermissions(c.Request().Context(), roles[i].ID)
@@ -45,7 +53,8 @@ func (h *RoleHandler) List(c echo.Context) error {
 		roles[i].Permissions = perms
 		out = append(out, roles[i].ToResponse())
 	}
-	return c.JSON(http.StatusOK, out)
+
+	return c.JSON(http.StatusOK, pagination.NewResponse(out, params, total))
 }
 
 // Get godoc

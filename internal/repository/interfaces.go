@@ -12,6 +12,7 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error)
 	List(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
+	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*model.User, error)
 }
@@ -22,6 +23,7 @@ type RoleRepository interface {
 	GetByID(ctx context.Context, id int64) (*model.Role, error)
 	GetByName(ctx context.Context, name string) (*model.Role, error)
 	List(ctx context.Context) ([]model.Role, error)
+	ListWithPagination(ctx context.Context, page, limit int) ([]model.Role, int64, error)
 	Update(ctx context.Context, id int64, req model.UpdateRoleRequest) (*model.Role, error)
 	Delete(ctx context.Context, id int64) error
 	GetPermissions(ctx context.Context, roleID int64) ([]model.Permission, error)
@@ -35,6 +37,7 @@ type PermissionRepository interface {
 	GetByID(ctx context.Context, id int64) (*model.Permission, error)
 	GetByName(ctx context.Context, name string) (*model.Permission, error)
 	List(ctx context.Context) ([]model.Permission, error)
+	ListWithPagination(ctx context.Context, resource string, page, limit int) ([]model.Permission, int64, error)
 	ListByResource(ctx context.Context, resource string) ([]model.Permission, error)
 	Delete(ctx context.Context, id int64) error
 }
