@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -15,6 +16,12 @@ var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrEmailTaken         = errors.New("email already taken")
 	ErrUnauthorized       = errors.New("unauthorized")
+	ErrAccountLocked      = errors.New("account is locked, try again later")
+)
+
+const (
+	maxFailedLoginAttempts = 5
+	lockoutDuration        = 15 * time.Minute
 )
 
 type AuthService struct {
@@ -66,8 +73,25 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 		return nil, ErrInvalidCredentials
 	}
 
+	// Check if account is locked
+	if user.LockedUntil != nil && user.LockedUntil.After(time.Now()) {
+		return nil, ErrAccountLocked
+	}
+
+	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		// Record failed attempt
+		if err := s.userRepo.RecordFailedLogin(ctx, user.ID, maxFailedLoginAttempts, lockoutDuration); err != nil {
+			// Log error but still return invalid credentials
+			_ = err
+		}
 		return nil, ErrInvalidCredentials
+	}
+
+	// Successful login — reset failed attempts
+	if err := s.userRepo.ResetLoginAttempts(ctx, user.ID); err != nil {
+		// Log error but don't fail login
+		_ = err
 	}
 
 	return user, nil

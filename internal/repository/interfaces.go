@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/ssr0016/template/internal/model"
 )
@@ -15,6 +16,8 @@ type UserRepository interface {
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error
 	UpdatePassword(ctx context.Context, userID int64, hash string) error
+	RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
+	ResetLoginAttempts(ctx context.Context, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*model.User, error)
 }

@@ -25,6 +25,8 @@ type MockUserRepo struct {
 	ListWithPaginationFunc func(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerifiedFunc  func(ctx context.Context, userID int64) error
 	UpdatePasswordFunc     func(ctx context.Context, userID int64, hash string) error
+	RecordFailedLoginFunc  func(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error
+	ResetLoginAttemptsFunc func(ctx context.Context, userID int64) error
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -173,5 +175,42 @@ func (m *MockUserRepo) UpdatePassword(ctx context.Context, userID int64, hash st
 		return fmt.Errorf("user not found")
 	}
 	user.PasswordHash = hash
+	return nil
+}
+
+// RecordFailedLogin increments failed attempts (mock).
+func (m *MockUserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error {
+	if m.RecordFailedLoginFunc != nil {
+		return m.RecordFailedLoginFunc(ctx, userID, maxAttempts, lockDuration)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[userID]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+	user.FailedLoginAttempts++
+	if user.FailedLoginAttempts >= maxAttempts {
+		lockedUntil := time.Now().Add(lockDuration)
+		user.LockedUntil = &lockedUntil
+	}
+	return nil
+}
+
+// ResetLoginAttempts clears failed attempts (mock).
+func (m *MockUserRepo) ResetLoginAttempts(ctx context.Context, userID int64) error {
+	if m.ResetLoginAttemptsFunc != nil {
+		return m.ResetLoginAttemptsFunc(ctx, userID)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[userID]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+	user.FailedLoginAttempts = 0
+	user.LockedUntil = nil
 	return nil
 }

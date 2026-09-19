@@ -17,12 +17,12 @@ type UserRepo struct{ db *database.DB }
 
 func NewUserRepo(db *database.DB) *UserRepo { return &UserRepo{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, created_at, updated_at"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, failed_login_attempts, locked_until, created_at, updated_at"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*model.User, error) {
 	var u model.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -121,7 +121,7 @@ func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]m
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
@@ -256,7 +256,7 @@ func (r *UserRepo) ListWithPagination(ctx context.Context, emailFilter string, p
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.FailedLoginAttempts, &u.LockedUntil, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
 		users = append(users, u)
@@ -305,6 +305,44 @@ func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string
 	}
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("user not found")
+	}
+	return nil
+}
+
+// RecordFailedLogin increments failed_login_attempts and locks account if threshold reached.
+func (r *UserRepo) RecordFailedLogin(ctx context.Context, userID int64, maxAttempts int, lockDuration time.Duration) error {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("failed_login_attempts", sq.Expr("failed_login_attempts + 1")).
+		Set("locked_until", sq.Expr("CASE WHEN failed_login_attempts + 1 >= ? THEN NOW() + ?::interval ELSE locked_until END", maxAttempts, lockDuration.String())).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": userID}).
+		ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+	_, err = r.db.Pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("record failed login: %w", err)
+	}
+	return nil
+}
+
+// ResetLoginAttempts clears failed attempts and unlocks account.
+func (r *UserRepo) ResetLoginAttempts(ctx context.Context, userID int64) error {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("failed_login_attempts", 0).
+		Set("locked_until", nil).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": userID}).
+		ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+	_, err = r.db.Pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("reset login attempts: %w", err)
 	}
 	return nil
 }

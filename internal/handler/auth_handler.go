@@ -53,6 +53,9 @@ func (h *AuthHandler) Login(c echo.Context) error {
 		if errors.Is(err, service.ErrInvalidCredentials) {
 			return apperror.Unauthorized("invalid email or password")
 		}
+		if errors.Is(err, service.ErrAccountLocked) {
+			return apperror.Forbidden("account is locked, try again later")
+		}
 		return apperror.Internal("login failed").WithError(err)
 	}
 
