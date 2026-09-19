@@ -24,6 +24,7 @@ type MockUserRepo struct {
 	GetWithRoleFunc        func(ctx context.Context, id int64) (*model.User, error)
 	ListWithPaginationFunc func(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerifiedFunc  func(ctx context.Context, userID int64) error
+	UpdatePasswordFunc     func(ctx context.Context, userID int64, hash string) error
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -156,5 +157,21 @@ func (m *MockUserRepo) MarkEmailVerified(ctx context.Context, userID int64) erro
 	user.EmailVerified = true
 	now := time.Now()
 	user.EmailVerifiedAt = &now
+	return nil
+}
+
+// UpdatePassword updates a user's password (mock).
+func (m *MockUserRepo) UpdatePassword(ctx context.Context, userID int64, hash string) error {
+	if m.UpdatePasswordFunc != nil {
+		return m.UpdatePasswordFunc(ctx, userID, hash)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[userID]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+	user.PasswordHash = hash
 	return nil
 }

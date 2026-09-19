@@ -286,3 +286,25 @@ func (r *UserRepo) MarkEmailVerified(ctx context.Context, userID int64) error {
 	}
 	return nil
 }
+
+// UpdatePassword updates a user's password hash.
+func (r *UserRepo) UpdatePassword(ctx context.Context, userID int64, hash string) error {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("password_hash", hash).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": userID}).
+		ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	result, err := r.db.Pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
+}

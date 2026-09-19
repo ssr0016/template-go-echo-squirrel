@@ -99,10 +99,12 @@ func run() error {
 	roleRepo := repository.NewRoleRepo(db)
 	permissionRepo := repository.NewPermissionRepo(db)
 	verificationRepo := repository.NewVerificationRepo(db)
+	passwordResetRepo := repository.NewPasswordResetRepo(db)
 
 	// Services
 	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
 	authService := service.NewAuthService(userRepo, verificationService)
+	passwordResetService := service.NewPasswordResetService(userRepo, passwordResetRepo, log)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService, sm)
@@ -111,6 +113,7 @@ func run() error {
 	permissionHandler := handler.NewPermissionHandler(permissionRepo)
 	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo)
 	verificationHandler := handler.NewVerificationHandler(verificationService)
+	passwordResetHandler := handler.NewPasswordResetHandler(passwordResetService)
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -172,6 +175,8 @@ func run() error {
 
 	// Email verification route
 	e.GET("/api/v1/auth/verify-email", verificationHandler.VerifyEmail)
+	e.POST("/api/v1/auth/forgot-password", passwordResetHandler.ForgotPassword)
+	e.POST("/api/v1/auth/reset-password", passwordResetHandler.ResetPassword)
 
 	scsHandler := sm.LoadAndSave(e)
 

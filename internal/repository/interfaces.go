@@ -14,6 +14,7 @@ type UserRepository interface {
 	List(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
 	MarkEmailVerified(ctx context.Context, userID int64) error
+	UpdatePassword(ctx context.Context, userID int64, hash string) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*model.User, error)
 }
@@ -51,10 +52,20 @@ type VerificationRepository interface {
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 
+
+// PasswordResetRepository defines the interface for password reset token access.
+type PasswordResetRepository interface {
+	Create(ctx context.Context, userID int64) (*model.PasswordReset, error)
+	GetByToken(ctx context.Context, token string) (*model.PasswordReset, error)
+	MarkUsed(ctx context.Context, id int64) error
+	DeleteExpired(ctx context.Context) (int64, error)
+}
+
 // Compile-time checks: implementations must satisfy interfaces.
 var (
 	_ UserRepository         = (*UserRepo)(nil)
 	_ RoleRepository         = (*RoleRepo)(nil)
 	_ PermissionRepository   = (*PermissionRepo)(nil)
 	_ VerificationRepository = (*VerificationRepo)(nil)
+	_ PasswordResetRepository = (*PasswordResetRepo)(nil)
 )
