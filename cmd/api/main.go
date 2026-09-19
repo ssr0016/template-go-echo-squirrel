@@ -30,6 +30,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
 	_ "github.com/ssr0016/template/docs"
@@ -111,8 +112,10 @@ func run() error {
 	e.HideBanner = true
 	e.HidePort = true
 
+	// Global middleware
 	e.Use(middleware.RequestID())
 	e.Use(ourmiddleware.SlogLogger(log))
+	e.Use(ourmiddleware.PrometheusMiddleware())
 	e.Use(ourmiddleware.CSRFProtection())
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -122,11 +125,49 @@ func run() error {
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 	}))
 
+	// Swagger
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
+
+	// ============================================================
+	// Observability endpoints
+	// ============================================================
+
+	// Metrics (Prometheus scrape)
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+
+	// Health check (basic)
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	// Readiness check (DB ping)
+	e.GET("/ready", func(c echo.Context) error {
+		pingCtx, cancel := context.WithTimeout(c.Request().Context(), 3*time.Second)
+		defer cancel()
+
+		if err := db.Pool.Ping(pingCtx); err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{
+				"status": "not ready",
+				"error":  err.Error(),
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{
+			"status": "ready",
+			"db":     "connected",
+		})
+	})
+
+	// Liveness check (process alive)
+	e.GET("/live", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{
+			"status": "alive",
+		})
+	})
+
+	// ============================================================
+	// API routes
+	// ============================================================
 	router.Setup(
 		e,
 		sm,
@@ -158,6 +199,9 @@ func run() error {
 			"api_url", cfg.App.URL,
 			"swagger_url", cfg.App.URL+"/swagger/index.html",
 			"health_url", cfg.App.URL+"/health",
+			"ready_url", cfg.App.URL+"/ready",
+			"live_url", cfg.App.URL+"/live",
+			"metrics_url", cfg.App.URL+"/metrics",
 		)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("server error", "error", err)
