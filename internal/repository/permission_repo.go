@@ -18,6 +18,32 @@ func NewPermissionRepo(db *database.DB) *PermissionRepo { return &PermissionRepo
 
 const permissionColumns = "id, name, resource, action, created_at, updated_at"
 
+// scanPermission scans a single permission from a row.
+func scanPermission(row pgx.Row) (*model.Permission, error) {
+	var p model.Permission
+	err := row.Scan(&p.ID, &p.Name, &p.Resource, &p.Action, &p.CreatedAt, &p.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("scan permission: %w", err)
+	}
+	return &p, nil
+}
+
+// findByColumn is a helper for fetching a single permission by any column.
+func (r *PermissionRepo) findByColumn(ctx context.Context, column string, value interface{}) (*model.Permission, error) {
+	query, args, err := r.db.Builder.
+		Select(permissionColumns).
+		From("permissions").
+		Where(sq.Eq{column: value}).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+	return scanPermission(r.db.Pool.QueryRow(ctx, query, args...))
+}
+
 func (r *PermissionRepo) Create(ctx context.Context, name, resource, action string) (*model.Permission, error) {
 	query, args, err := r.db.Builder.
 		Insert("permissions").
@@ -28,55 +54,15 @@ func (r *PermissionRepo) Create(ctx context.Context, name, resource, action stri
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-	var p model.Permission
-	err = r.db.Pool.QueryRow(ctx, query, args...).
-		Scan(&p.ID, &p.Name, &p.Resource, &p.Action, &p.CreatedAt, &p.UpdatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("insert permission: %w", err)
-	}
-	return &p, nil
+	return scanPermission(r.db.Pool.QueryRow(ctx, query, args...))
 }
 
 func (r *PermissionRepo) GetByID(ctx context.Context, id int64) (*model.Permission, error) {
-	query, args, err := r.db.Builder.
-		Select(permissionColumns).
-		From("permissions").
-		Where(sq.Eq{"id": id}).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
-	}
-	var p model.Permission
-	err = r.db.Pool.QueryRow(ctx, query, args...).
-		Scan(&p.ID, &p.Name, &p.Resource, &p.Action, &p.CreatedAt, &p.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query permission: %w", err)
-	}
-	return &p, nil
+	return r.findByColumn(ctx, "id", id)
 }
 
 func (r *PermissionRepo) GetByName(ctx context.Context, name string) (*model.Permission, error) {
-	query, args, err := r.db.Builder.
-		Select(permissionColumns).
-		From("permissions").
-		Where(sq.Eq{"name": name}).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
-	}
-	var p model.Permission
-	err = r.db.Pool.QueryRow(ctx, query, args...).
-		Scan(&p.ID, &p.Name, &p.Resource, &p.Action, &p.CreatedAt, &p.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query permission: %w", err)
-	}
-	return &p, nil
+	return r.findByColumn(ctx, "name", name)
 }
 
 func (r *PermissionRepo) List(ctx context.Context) ([]model.Permission, error) {
@@ -105,21 +91,7 @@ func (r *PermissionRepo) ListByResource(ctx context.Context, resource string) ([
 }
 
 func (r *PermissionRepo) Delete(ctx context.Context, id int64) error {
-	query, args, err := r.db.Builder.
-		Delete("permissions").
-		Where(sq.Eq{"id": id}).
-		ToSql()
-	if err != nil {
-		return fmt.Errorf("build query: %w", err)
-	}
-	result, err := r.db.Pool.Exec(ctx, query, args...)
-	if err != nil {
-		return fmt.Errorf("delete permission: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("permission not found")
-	}
-	return nil
+	return deleteByID(ctx, r.db, "permissions", id)
 }
 
 func (r *PermissionRepo) scanPermissions(ctx context.Context, query string, args ...interface{}) ([]model.Permission, error) {

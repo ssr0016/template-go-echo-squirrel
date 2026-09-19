@@ -18,7 +18,30 @@ func NewRoleRepo(db *database.DB) *RoleRepo { return &RoleRepo{db: db} }
 
 const roleColumns = "id, name, description, created_at, updated_at"
 
-// Create inserts a new role.
+func scanRole(row pgx.Row) (*model.Role, error) {
+	var role model.Role
+	err := row.Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("scan role: %w", err)
+	}
+	return &role, nil
+}
+
+func (r *RoleRepo) findByColumn(ctx context.Context, column string, value interface{}) (*model.Role, error) {
+	query, args, err := r.db.Builder.
+		Select(roleColumns).
+		From("roles").
+		Where(sq.Eq{column: value}).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build query: %w", err)
+	}
+	return scanRole(r.db.Pool.QueryRow(ctx, query, args...))
+}
+
 func (r *RoleRepo) Create(ctx context.Context, req model.CreateRoleRequest) (*model.Role, error) {
 	query, args, err := r.db.Builder.
 		Insert("roles").
@@ -29,63 +52,17 @@ func (r *RoleRepo) Create(ctx context.Context, req model.CreateRoleRequest) (*mo
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-
-	var role model.Role
-	err = r.db.Pool.QueryRow(ctx, query, args...).
-		Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("insert role: %w", err)
-	}
-	return &role, nil
+	return scanRole(r.db.Pool.QueryRow(ctx, query, args...))
 }
 
-// GetByID returns a role by its ID.
 func (r *RoleRepo) GetByID(ctx context.Context, id int64) (*model.Role, error) {
-	query, args, err := r.db.Builder.
-		Select(roleColumns).
-		From("roles").
-		Where(sq.Eq{"id": id}).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
-	}
-
-	var role model.Role
-	err = r.db.Pool.QueryRow(ctx, query, args...).
-		Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query role: %w", err)
-	}
-	return &role, nil
+	return r.findByColumn(ctx, "id", id)
 }
 
-// GetByName returns a role by its name.
 func (r *RoleRepo) GetByName(ctx context.Context, name string) (*model.Role, error) {
-	query, args, err := r.db.Builder.
-		Select(roleColumns).
-		From("roles").
-		Where(sq.Eq{"name": name}).
-		ToSql()
-	if err != nil {
-		return nil, fmt.Errorf("build query: %w", err)
-	}
-
-	var role model.Role
-	err = r.db.Pool.QueryRow(ctx, query, args...).
-		Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("query role: %w", err)
-	}
-	return &role, nil
+	return r.findByColumn(ctx, "name", name)
 }
 
-// List returns all roles.
 func (r *RoleRepo) List(ctx context.Context) ([]model.Role, error) {
 	query, args, err := r.db.Builder.
 		Select(roleColumns).
@@ -113,7 +90,6 @@ func (r *RoleRepo) List(ctx context.Context) ([]model.Role, error) {
 	return roles, rows.Err()
 }
 
-// Update updates a role.
 func (r *RoleRepo) Update(ctx context.Context, id int64, req model.UpdateRoleRequest) (*model.Role, error) {
 	builder := r.db.Builder.Update("roles").Where(sq.Eq{"id": id})
 
@@ -131,40 +107,13 @@ func (r *RoleRepo) Update(ctx context.Context, id int64, req model.UpdateRoleReq
 	if err != nil {
 		return nil, fmt.Errorf("build query: %w", err)
 	}
-
-	var role model.Role
-	err = r.db.Pool.QueryRow(ctx, query, args...).
-		Scan(&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("update role: %w", err)
-	}
-	return &role, nil
+	return scanRole(r.db.Pool.QueryRow(ctx, query, args...))
 }
 
-// Delete deletes a role.
 func (r *RoleRepo) Delete(ctx context.Context, id int64) error {
-	query, args, err := r.db.Builder.
-		Delete("roles").
-		Where(sq.Eq{"id": id}).
-		ToSql()
-	if err != nil {
-		return fmt.Errorf("build query: %w", err)
-	}
-
-	result, err := r.db.Pool.Exec(ctx, query, args...)
-	if err != nil {
-		return fmt.Errorf("delete role: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return fmt.Errorf("role not found")
-	}
-	return nil
+	return deleteByID(ctx, r.db, "roles", id)
 }
 
-// GetPermissions returns all permissions for a role.
 func (r *RoleRepo) GetPermissions(ctx context.Context, roleID int64) ([]model.Permission, error) {
 	query, args, err := r.db.Builder.
 		Select("p.id", "p.name", "p.resource", "p.action", "p.created_at", "p.updated_at").
@@ -194,7 +143,6 @@ func (r *RoleRepo) GetPermissions(ctx context.Context, roleID int64) ([]model.Pe
 	return perms, rows.Err()
 }
 
-// AssignPermission assigns a permission to a role (idempotent).
 func (r *RoleRepo) AssignPermission(ctx context.Context, roleID, permissionID int64) error {
 	query, args, err := r.db.Builder.
 		Insert("role_permissions").
@@ -205,7 +153,6 @@ func (r *RoleRepo) AssignPermission(ctx context.Context, roleID, permissionID in
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-
 	_, err = r.db.Pool.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("assign permission: %w", err)
@@ -213,7 +160,6 @@ func (r *RoleRepo) AssignPermission(ctx context.Context, roleID, permissionID in
 	return nil
 }
 
-// RevokePermission removes a permission from a role.
 func (r *RoleRepo) RevokePermission(ctx context.Context, roleID, permissionID int64) error {
 	query, args, err := r.db.Builder.
 		Delete("role_permissions").
@@ -222,7 +168,6 @@ func (r *RoleRepo) RevokePermission(ctx context.Context, roleID, permissionID in
 	if err != nil {
 		return fmt.Errorf("build query: %w", err)
 	}
-
 	_, err = r.db.Pool.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("revoke permission: %w", err)

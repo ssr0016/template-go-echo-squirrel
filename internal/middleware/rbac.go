@@ -84,4 +84,3 @@ func RequirePermission(roleRepo repository.RoleRepository, userRepo repository.U
 		}
 	}
 }
-
