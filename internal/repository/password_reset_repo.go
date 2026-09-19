@@ -23,7 +23,7 @@ func NewPasswordResetRepo(db *database.DB) *PasswordResetRepo {
 	return &PasswordResetRepo{db: db}
 }
 
-const passwordResetColumns = "id, user_id, token, expires_at, used_at, created_at"
+const passwordResetColumns = "id, user_id, token, expires_at, used_at, created_at" // #nosec G101 - not credentials, column names
 
 func scanPasswordReset(row pgx.Row) (*model.PasswordReset, error) {
 	var p model.PasswordReset

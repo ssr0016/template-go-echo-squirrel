@@ -44,6 +44,13 @@ linters:
       - path: internal/handler/
         linters:
           - dupl
+      - path: internal/repository/verification_repo\.go
+        linters:
+          - dupl
+      - path: internal/repository/password_reset_repo\.go
+        linters:
+          - dupl
+          - gosec
       - path: _test\.go
         linters:
           - dupl

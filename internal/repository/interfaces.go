@@ -52,7 +52,6 @@ type VerificationRepository interface {
 	DeleteExpired(ctx context.Context) (int64, error)
 }
 
-
 // PasswordResetRepository defines the interface for password reset token access.
 type PasswordResetRepository interface {
 	Create(ctx context.Context, userID int64) (*model.PasswordReset, error)
@@ -63,9 +62,9 @@ type PasswordResetRepository interface {
 
 // Compile-time checks: implementations must satisfy interfaces.
 var (
-	_ UserRepository         = (*UserRepo)(nil)
-	_ RoleRepository         = (*RoleRepo)(nil)
-	_ PermissionRepository   = (*PermissionRepo)(nil)
-	_ VerificationRepository = (*VerificationRepo)(nil)
+	_ UserRepository          = (*UserRepo)(nil)
+	_ RoleRepository          = (*RoleRepo)(nil)
+	_ PermissionRepository    = (*PermissionRepo)(nil)
+	_ VerificationRepository  = (*VerificationRepo)(nil)
 	_ PasswordResetRepository = (*PasswordResetRepo)(nil)
 )
