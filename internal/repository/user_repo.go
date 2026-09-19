@@ -17,12 +17,12 @@ type UserRepo struct{ db *database.DB }
 
 func NewUserRepo(db *database.DB) *UserRepo { return &UserRepo{db: db} }
 
-const userColumns = "id, email, name, password_hash, role_id, created_at, updated_at"
+const userColumns = "id, email, name, password_hash, role_id, email_verified, email_verified_at, created_at, updated_at"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*model.User, error) {
 	var u model.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -59,10 +59,26 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*model.User, e
 }
 
 func (r *UserRepo) CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error) {
+	// Get default 'user' role ID
+	roleQuery, roleArgs, err := r.db.Builder.
+		Select("id").
+		From("roles").
+		Where(sq.Eq{"name": "user"}).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build role query: %w", err)
+	}
+
+	var roleID int64
+	if err := r.db.Pool.QueryRow(ctx, roleQuery, roleArgs...).Scan(&roleID); err != nil {
+		return nil, fmt.Errorf("get default role: %w", err)
+	}
+
+	// Insert user with default role
 	query, args, err := r.db.Builder.
 		Insert("users").
-		Columns("email", "name", "password_hash").
-		Values(email, name, hash).
+		Columns("email", "name", "password_hash", "role_id").
+		Values(email, name, hash, roleID).
 		Suffix("RETURNING " + userColumns).
 		ToSql()
 	if err != nil {
@@ -105,7 +121,7 @@ func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]m
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
@@ -240,10 +256,33 @@ func (r *UserRepo) ListWithPagination(ctx context.Context, emailFilter string, p
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.EmailVerified, &u.EmailVerifiedAt, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan user: %w", err)
 		}
 		users = append(users, u)
 	}
 	return users, total, rows.Err()
+}
+
+// MarkEmailVerified marks a user's email as verified.
+func (r *UserRepo) MarkEmailVerified(ctx context.Context, userID int64) error {
+	query, args, err := r.db.Builder.
+		Update("users").
+		Set("email_verified", true).
+		Set("email_verified_at", sq.Expr("NOW()")).
+		Set("updated_at", sq.Expr("NOW()")).
+		Where(sq.Eq{"id": userID}).
+		ToSql()
+	if err != nil {
+		return fmt.Errorf("build query: %w", err)
+	}
+
+	result, err := r.db.Pool.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("mark email verified: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("user not found")
+	}
+	return nil
 }

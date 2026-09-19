@@ -94,17 +94,23 @@ func run() error {
 
 	sm := session.New(db.Pool)
 
+	// Repositories
 	userRepo := repository.NewUserRepo(db)
 	roleRepo := repository.NewRoleRepo(db)
 	permissionRepo := repository.NewPermissionRepo(db)
+	verificationRepo := repository.NewVerificationRepo(db)
 
-	authService := service.NewAuthService(userRepo)
+	// Services
+	verificationService := service.NewVerificationService(userRepo, verificationRepo, log)
+	authService := service.NewAuthService(userRepo, verificationService)
 
+	// Handlers
 	authHandler := handler.NewAuthHandler(authService, sm)
 	userHandler := handler.NewUserHandler(userRepo)
 	roleHandler := handler.NewRoleHandler(roleRepo, permissionRepo)
 	permissionHandler := handler.NewPermissionHandler(permissionRepo)
 	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo)
+	verificationHandler := handler.NewVerificationHandler(verificationService)
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -128,46 +134,30 @@ func run() error {
 	// Swagger
 	e.GET("/swagger/*", echoSwagger.WrapHandler)
 
-	// ============================================================
 	// Observability endpoints
-	// ============================================================
-
-	// Metrics (Prometheus scrape)
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-
-	// Health check (basic)
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
-
-	// Readiness check (DB ping)
 	e.GET("/ready", func(c echo.Context) error {
 		pingCtx, cancel := context.WithTimeout(c.Request().Context(), 3*time.Second)
 		defer cancel()
-
 		if err := db.Pool.Ping(pingCtx); err != nil {
 			return c.JSON(http.StatusServiceUnavailable, map[string]string{
 				"status": "not ready",
 				"error":  err.Error(),
 			})
 		}
-
 		return c.JSON(http.StatusOK, map[string]string{
 			"status": "ready",
 			"db":     "connected",
 		})
 	})
-
-	// Liveness check (process alive)
 	e.GET("/live", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{
-			"status": "alive",
-		})
+		return c.JSON(http.StatusOK, map[string]string{"status": "alive"})
 	})
 
-	// ============================================================
 	// API routes
-	// ============================================================
 	router.Setup(
 		e,
 		sm,
@@ -179,6 +169,9 @@ func run() error {
 		permissionHandler,
 		adminUserHandler,
 	)
+
+	// Email verification route
+	e.GET("/api/v1/auth/verify-email", verificationHandler.VerifyEmail)
 
 	scsHandler := sm.LoadAndSave(e)
 

@@ -13,6 +13,7 @@ type UserRepository interface {
 	CreateWithPassword(ctx context.Context, email, name, hash string) (*model.User, error)
 	List(ctx context.Context, emailFilter string, limit int) ([]model.User, error)
 	ListWithPagination(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
+	MarkEmailVerified(ctx context.Context, userID int64) error
 	UpdateRole(ctx context.Context, userID, roleID int64) error
 	GetWithRole(ctx context.Context, id int64) (*model.User, error)
 }
@@ -42,9 +43,19 @@ type PermissionRepository interface {
 	Delete(ctx context.Context, id int64) error
 }
 
+
+// VerificationRepository defines the interface for verification token access.
+type VerificationRepository interface {
+	Create(ctx context.Context, userID int64) (*model.VerificationToken, error)
+	GetByToken(ctx context.Context, token string) (*model.VerificationToken, error)
+	MarkUsed(ctx context.Context, id int64) error
+	DeleteExpired(ctx context.Context) (int64, error)
+}
+
 // Compile-time checks: implementations must satisfy interfaces.
 var (
 	_ UserRepository       = (*UserRepo)(nil)
 	_ RoleRepository       = (*RoleRepo)(nil)
 	_ PermissionRepository = (*PermissionRepo)(nil)
+	_ VerificationRepository = (*VerificationRepo)(nil)
 )

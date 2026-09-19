@@ -18,11 +18,15 @@ var (
 )
 
 type AuthService struct {
-	userRepo repository.UserRepository
+	userRepo            repository.UserRepository
+	verificationService *VerificationService
 }
 
-func NewAuthService(userRepo repository.UserRepository) *AuthService {
-	return &AuthService{userRepo: userRepo}
+func NewAuthService(userRepo repository.UserRepository, verificationService *VerificationService) *AuthService {
+	return &AuthService{
+		userRepo:            userRepo,
+		verificationService: verificationService,
+	}
 }
 
 func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (*model.User, error) {
@@ -39,7 +43,20 @@ func (s *AuthService) Register(ctx context.Context, req model.RegisterRequest) (
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	return s.userRepo.CreateWithPassword(ctx, req.Email, req.Name, string(hash))
+	user, err := s.userRepo.CreateWithPassword(ctx, req.Email, req.Name, string(hash))
+	if err != nil {
+		return nil, err
+	}
+
+	// Send verification email (log token in dev)
+	if s.verificationService != nil {
+		if _, err := s.verificationService.SendVerification(ctx, user.ID); err != nil {
+			// Log error but don't fail registration
+			// User can request new token later
+		}
+	}
+
+	return user, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string) (*model.User, error) {

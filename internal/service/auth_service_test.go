@@ -15,7 +15,7 @@ const testPassword = "X7kP9mQ2vL8nR4tY6wB3zC5dF1gH0jK"
 
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo)
+	svc := NewAuthService(repo, nil)
 
 	user, err := svc.Register(context.Background(), model.RegisterRequest{
 		Email:    "test@example.com",
@@ -45,7 +45,7 @@ func TestAuthService_Register_Success(t *testing.T) {
 
 func TestAuthService_Register_DuplicateEmail(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo)
+	svc := NewAuthService(repo, nil)
 
 	_, err := svc.Register(context.Background(), model.RegisterRequest{
 		Email:    "dup@example.com",
@@ -72,7 +72,7 @@ func TestAuthService_Register_RepoError(t *testing.T) {
 	repo.GetByEmailFunc = func(ctx context.Context, email string) (*model.User, error) {
 		return nil, errors.New("db error")
 	}
-	svc := NewAuthService(repo)
+	svc := NewAuthService(repo, nil)
 
 	_, err := svc.Register(context.Background(), model.RegisterRequest{
 		Email:    "err@example.com",
@@ -87,7 +87,7 @@ func TestAuthService_Register_RepoError(t *testing.T) {
 
 func TestAuthService_Login_Success(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo)
+	svc := NewAuthService(repo, nil)
 
 	registered, err := svc.Register(context.Background(), model.RegisterRequest{
 		Email:    "login@example.com",
@@ -109,7 +109,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 func TestAuthService_Login_UserNotFound(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo)
+	svc := NewAuthService(repo, nil)
 
 	_, err := svc.Login(context.Background(), "nobody@example.com", testPassword)
 	if !errors.Is(err, ErrInvalidCredentials) {
@@ -119,7 +119,7 @@ func TestAuthService_Login_UserNotFound(t *testing.T) {
 
 func TestAuthService_Login_WrongPassword(t *testing.T) {
 	repo := repository.NewMockUserRepo()
-	svc := NewAuthService(repo)
+	svc := NewAuthService(repo, nil)
 
 	_, err := svc.Register(context.Background(), model.RegisterRequest{
 		Email:    "wrong@example.com",
@@ -141,7 +141,7 @@ func TestAuthService_Login_RepoError(t *testing.T) {
 	repo.GetByEmailFunc = func(ctx context.Context, email string) (*model.User, error) {
 		return nil, errors.New("db error")
 	}
-	svc := NewAuthService(repo)
+	svc := NewAuthService(repo, nil)
 
 	_, err := svc.Login(context.Background(), "err@example.com", testPassword)
 	if err == nil {

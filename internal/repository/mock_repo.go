@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ssr0016/template/internal/model"
 )
@@ -22,6 +23,7 @@ type MockUserRepo struct {
 	UpdateRoleFunc         func(ctx context.Context, userID, roleID int64) error
 	GetWithRoleFunc        func(ctx context.Context, id int64) (*model.User, error)
 	ListWithPaginationFunc func(ctx context.Context, emailFilter string, page, limit int) ([]model.User, int64, error)
+	MarkEmailVerifiedFunc  func(ctx context.Context, userID int64) error
 }
 
 // NewMockUserRepo creates a new mock repository.
@@ -137,4 +139,22 @@ func (m *MockUserRepo) ListWithPagination(ctx context.Context, emailFilter strin
 		result = append(result, *u)
 	}
 	return result, int64(len(result)), nil
+}
+
+// MarkEmailVerified marks email as verified (mock).
+func (m *MockUserRepo) MarkEmailVerified(ctx context.Context, userID int64) error {
+	if m.MarkEmailVerifiedFunc != nil {
+		return m.MarkEmailVerifiedFunc(ctx, userID)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	user, ok := m.users[userID]
+	if !ok {
+		return fmt.Errorf("user not found")
+	}
+	user.EmailVerified = true
+	now := time.Now()
+	user.EmailVerifiedAt = &now
+	return nil
 }
