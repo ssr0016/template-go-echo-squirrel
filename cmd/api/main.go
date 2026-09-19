@@ -87,7 +87,6 @@ func run() error {
 		}
 	}
 
-	// Seed database (idempotent)
 	if err := database.SeedData(ctx, db, log); err != nil {
 		return err
 	}
@@ -102,6 +101,9 @@ func run() error {
 
 	authHandler := handler.NewAuthHandler(authService, sm)
 	userHandler := handler.NewUserHandler(userRepo)
+	roleHandler := handler.NewRoleHandler(roleRepo, permissionRepo)
+	permissionHandler := handler.NewPermissionHandler(permissionRepo)
+	adminUserHandler := handler.NewAdminUserHandler(userRepo, roleRepo)
 
 	e := echo.New()
 	e.Validator = validator.New()
@@ -125,7 +127,17 @@ func run() error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	router.Setup(e, sm, authHandler, userHandler)
+	router.Setup(
+		e,
+		sm,
+		userRepo,
+		roleRepo,
+		authHandler,
+		userHandler,
+		roleHandler,
+		permissionHandler,
+		adminUserHandler,
+	)
 
 	scsHandler := sm.LoadAndSave(e)
 
@@ -165,9 +177,5 @@ func run() error {
 	}
 
 	log.Info("server stopped")
-
-	_ = roleRepo
-	_ = permissionRepo
-
 	return nil
 }

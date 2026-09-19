@@ -17,12 +17,12 @@ type UserRepo struct{ db *database.DB }
 
 func NewUserRepo(db *database.DB) *UserRepo { return &UserRepo{db: db} }
 
-const userColumns = "id, email, name, password_hash, created_at, updated_at"
+const userColumns = "id, email, name, password_hash, role_id, created_at, updated_at"
 
 // scanUser scans a single user from a row.
 func scanUser(row pgx.Row) (*model.User, error) {
 	var u model.User
-	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.CreatedAt, &u.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -105,7 +105,7 @@ func (r *UserRepo) List(ctx context.Context, emailFilter string, limit int) ([]m
 	var users []model.User
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.PasswordHash, &u.RoleID, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("scan row: %w", err)
 		}
 		users = append(users, u)
