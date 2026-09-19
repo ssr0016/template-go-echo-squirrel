@@ -34,3 +34,8 @@ func NewWithURL(ctx context.Context, dsn string) (*DB, error) {
 	builder := sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 	return &DB{Pool: pool, Builder: builder}, nil
 }
+
+// NewStatementBuilder returns a Squirrel builder configured for Postgres.
+func NewStatementBuilder() sq.StatementBuilderType {
+	return sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
+}

@@ -122,3 +122,87 @@ func (s *UserService) Register(ctx, req) (*User, error) {
 | Pragmatism | Don't add unnecessary layers |
 
 Remember: Layering is a tool, not a religion. Use it where it adds value.
+
+---
+
+## Testing Strategy
+
+### Two Types of Tests
+
+- Unit Tests: Business logic in isolation, uses MockRepo, fast
+- Integration Tests: Real DB interactions, uses Testcontainers, slow
+
+### Testing Pyramid
+
+- E2E Tests (few): Full HTTP flow, real DB + handlers
+- Integration Tests (some): Repo + real DB, handler + mocked services
+- Unit Tests (many): Service + mock repo, middleware logic, validation
+
+Rule: Maraming unit tests, kaunting integration tests.
+
+### Why MockRepo?
+
+Purpose: Fast unit tests ng service layer.
+
+Pros:
+- Mabilis (microseconds)
+- Isolated (no DB dependency)
+- Deterministic (no flaky tests)
+- Test edge cases easily
+
+Cons:
+- Hindi tested ang SQL
+- Hindi tested ang DB constraints
+- Hindi tested ang migrations
+
+### Why Real DB Tests?
+
+Purpose: Integration tests ng repository layer.
+
+Pros:
+- Tested ang SQL queries
+- Tested ang schema
+- Tested ang constraints (NOT NULL, FK)
+- Production-like
+
+Cons:
+- Mabagal (Docker startup)
+- Kailangan Docker
+- More setup
+
+### Test Distribution
+
+| Layer | Test Type | Uses |
+|---|---|---|
+| Handler | Unit | Mock service |
+| Service | Unit | Mock repo |
+| Repository | Integration | Real DB |
+| Middleware | Unit | Mock data |
+| Migrations | Integration | Testcontainers |
+
+### When to Use Which
+
+Unit Test (MockRepo):
+- Business logic
+- Validation
+- Error handling
+- Edge cases (empty data, errors)
+- Fast feedback
+
+Integration Test (Real DB):
+- SQL queries
+- DB constraints
+- Migrations
+- Transactions
+- Production confidence
+
+### Best Practice
+
+Hybrid approach - ginagamit ng Google, Uber, Netflix:
+- 90% unit tests (fast, mock)
+- 10% integration tests (real DB, testcontainers)
+
+Bakit:
+- Unit tests: Fast feedback, test logic
+- Integration tests: Real SQL, DB constraints
+- BOTH needed for production confidence
