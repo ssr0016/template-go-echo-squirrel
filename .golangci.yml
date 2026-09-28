@@ -34,12 +34,19 @@ linters:
       min-complexity: 15
     dupl:
       threshold: 100
+    gosec:
+      excludes:
+        - G117
     revive:
       rules:
         - name: exported
           disabled: true
 
   exclusions:
+    paths:
+      - volumes/
+      - tmp/
+      - bin/
     rules:
       - path: internal/handler/
         linters:

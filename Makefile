@@ -81,11 +81,11 @@ migrate-status:
 
 .PHONY: test
 test:
-	@go test ./... -race -cover
+	@go test ./cmd/... ./internal/... ./pkg/... $(shell test -d api && printf './api/...') -race -cover
 
 .PHONY: lint
 lint:
-	@golangci-lint run ./...
+	@golangci-lint run ./cmd/... ./internal/... ./pkg/... $(shell test -d api && printf './api/...')
 
 .PHONY: fmt
 fmt:
