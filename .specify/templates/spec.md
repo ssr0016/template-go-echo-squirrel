@@ -1,1 +1,0 @@
-/home/samson/template-go-echo-squirrel/.ai-workflow/templates/spec.md
